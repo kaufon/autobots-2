@@ -18,10 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.autobots.automanager.entidades.Cliente;
 import com.autobots.automanager.modelo.ClienteAtualizador;
 import com.autobots.automanager.modelo.ClienteSelecionador;
-import com.autobots.automanager.modelo.DocumentoAtualizador;
 import com.autobots.automanager.repositorios.ClienteRepositorio;
 import com.autobots.automanager.repositorios.DocumentoRepositorio;
-import com.autobots.automanager.repositorios.EnderecoRepositorio;
 import com.autobots.automanager.repositorios.TelefoneRepositorio;
 import com.autobots.automanager.servicos.AdicionarLinkClienteServico;
 

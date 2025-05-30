@@ -10,13 +10,15 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
 
+import org.springframework.hateoas.RepresentationModel;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import lombok.Data;
 
 @Data
 @Entity
-public class Endereco {
+public class Endereco extends RepresentationModel<Endereco> {
   @Id()
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

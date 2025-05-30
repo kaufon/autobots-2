@@ -1,21 +1,19 @@
 package com.autobots.automanager.controles;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import com.autobots.automanager.entidades.Telefone;
+import com.autobots.automanager.entidades.Cliente;
 import com.autobots.automanager.modelo.TelefoneAtualizador;
 import com.autobots.automanager.repositorios.ClienteRepositorio;
 import com.autobots.automanager.repositorios.TelefoneRepositorio;
+import com.autobots.automanager.servicos.AdicionarLinkTelefoneServico;
 
 import lombok.Data;
 
@@ -27,45 +25,82 @@ public class TelefoneControler {
   private TelefoneRepositorio telefoneRepositorio;
 
   @Autowired
+  private ClienteRepositorio clienteRepositorio;
+
+  @Autowired
   private TelefoneAtualizador telefoneAtualizador;
 
   @Autowired
-  private ClienteRepositorio clienteRepositorio;
+  private AdicionarLinkTelefoneServico adicionadorLink;
 
   @Data
   private static class CriarTelefoneRequest {
-    Telefone telefone;
-    long clienteId;
+    private Telefone telefone;
+    private long clienteId;
   }
 
+
   @GetMapping("/telefones")
-  public List<Telefone> obterTelefones() {
-    return telefoneRepositorio.findAll();
+  public ResponseEntity<List<Telefone>> obterTelefones() {
+    List<Telefone> telefones = telefoneRepositorio.findAll();
+    if (telefones.isEmpty()) {
+      return ResponseEntity.noContent().build();
+    }
+    adicionadorLink.adicionarLink(telefones);
+    return ResponseEntity.ok(telefones);
   }
 
   @GetMapping("/telefone/{id}")
-  public Telefone obterTelefone(@PathVariable long id) {
-    return telefoneRepositorio.findById(id).get();
+  public ResponseEntity<Telefone> obterTelefone(@PathVariable long id) {
+    Optional<Telefone> telefone = telefoneRepositorio.findById(id);
+    if (telefone.isPresent()) {
+      adicionadorLink.adicionarLink(telefone.get());
+      return ResponseEntity.ok(telefone.get());
+    }
+    return ResponseEntity.notFound().build();
   }
 
+
   @PostMapping("/cadastro")
-  public void cadastrarTelefone(@RequestBody CriarTelefoneRequest request) {
-    var cliente = clienteRepositorio.findById(request.getClienteId()).get();
-    var telefone = request.getTelefone();
+  public ResponseEntity<?> cadastrarTelefone(@RequestBody CriarTelefoneRequest request) {
+    Optional<Cliente> clienteOpt = clienteRepositorio.findById(request.getClienteId());
+    if (clienteOpt.isEmpty()) {
+      return ResponseEntity.badRequest().body("Cliente não encontrado");
+    }
+
+    Cliente cliente = clienteOpt.get();
+    Telefone telefone = request.getTelefone();
     telefone.setCliente(cliente);
+
     telefone = telefoneRepositorio.save(telefone);
     cliente.getTelefones().add(telefone);
     clienteRepositorio.save(cliente);
+
+    return new ResponseEntity<>(HttpStatus.CREATED);
   }
+
+
   @PutMapping("/atualizar")
-  public void atualizarTelefone(@RequestBody Telefone telefoneAtualizado) {
-    var telefone = telefoneRepositorio.findById(telefoneAtualizado.getId()).get();
-    telefoneAtualizador.atualizar(telefone, telefoneAtualizado);
-    telefoneRepositorio.save(telefone);
+  public ResponseEntity<?> atualizarTelefone(@RequestBody Telefone telefoneAtualizado) {
+    Optional<Telefone> telefoneOpt = telefoneRepositorio.findById(telefoneAtualizado.getId());
+    if (telefoneOpt.isEmpty()) {
+      return ResponseEntity.badRequest().body("Telefone não encontrado");
+    }
+
+    telefoneAtualizador.atualizar(telefoneOpt.get(), telefoneAtualizado);
+    telefoneRepositorio.save(telefoneOpt.get());
+    return ResponseEntity.ok().build();
   }
+
+
   @DeleteMapping("/deletar")
-  public void deletarTelefone(@RequestBody Telefone telefone) {
-    var telefoneDeletado = telefoneRepositorio.findById(telefone.getId()).get();
-    telefoneRepositorio.delete(telefoneDeletado);
+  public ResponseEntity<?> deletarTelefone(@RequestBody Telefone telefone) {
+    Optional<Telefone> telefoneOpt = telefoneRepositorio.findById(telefone.getId());
+    if (telefoneOpt.isEmpty()) {
+      return ResponseEntity.badRequest().body("Telefone não encontrado");
+    }
+
+    telefoneRepositorio.delete(telefoneOpt.get());
+    return ResponseEntity.ok().build();
   }
 }

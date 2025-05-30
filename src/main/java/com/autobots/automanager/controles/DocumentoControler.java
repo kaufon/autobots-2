@@ -1,23 +1,19 @@
 package com.autobots.automanager.controles;
 
 import java.util.List;
-
-import javax.print.Doc;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
+import com.autobots.automanager.entidades.Cliente;
 import com.autobots.automanager.entidades.Documento;
 import com.autobots.automanager.modelo.DocumentoAtualizador;
 import com.autobots.automanager.repositorios.ClienteRepositorio;
 import com.autobots.automanager.repositorios.DocumentoRepositorio;
+import com.autobots.automanager.servicos.AdicionarLinkDocumentoServico;
 
 import lombok.Data;
 
@@ -34,41 +30,74 @@ public class DocumentoControler {
   @Autowired
   private DocumentoAtualizador documentoAtualizador;
 
-  @Data
-  private static class CriarDocumentoRequest{
-    Documento documento;
-    long clienteId;
-  }
+  @Autowired
+  private AdicionarLinkDocumentoServico adicionadorLink;
 
+  @Data
+  private static class CriarDocumentoRequest {
+    private Documento documento;
+    private long clienteId;
+  }
 
   @GetMapping("/documentos")
-  public List<Documento> obterDocumentos() {
+  public ResponseEntity<List<Documento>> obterDocumentos() {
     List<Documento> documentos = documentoRepositorio.findAll();
-    return documentos;
+    if (documentos.isEmpty()) {
+      return ResponseEntity.noContent().build();
+    } else {
+      adicionadorLink.adicionarLink(documentos);
+      return ResponseEntity.ok(documentos);
+    }
   }
+
   @GetMapping("/documento/{id}")
-  public Documento obterDocumento(@PathVariable long id) {
-    var documento = documentoRepositorio.findById(id);
-    return documento.get();
+  public ResponseEntity<Documento> obterDocumento(@PathVariable long id) {
+    Optional<Documento> documento = documentoRepositorio.findById(id);
+    if (documento.isPresent()) {
+      adicionadorLink.adicionarLink(documento.get());
+      return ResponseEntity.ok(documento.get());
+    } else {
+      return ResponseEntity.notFound().build();
+    }
   }
+
   @PostMapping("/cadastro")
-  public void cadastrarDocumento(@RequestBody CriarDocumentoRequest request) {
-    var cliente = clienteRepositorio.findById(request.getClienteId()).get();
-    var document = request.getDocumento();
-    document.setCliente(cliente);
-    document = documentoRepositorio.save(document);
-    cliente.getDocumentos().add(document);
+  public ResponseEntity<?> cadastrarDocumento(@RequestBody CriarDocumentoRequest request) {
+    Optional<Cliente> varCliente = clienteRepositorio.findById(request.getClienteId());
+    if (varCliente.isEmpty()) {
+      return ResponseEntity.badRequest().body("Cliente não encontrado");
+    }
+
+    var cliente = varCliente.get();
+    Documento documento = request.getDocumento();
+    documento.setCliente(cliente);
+    documento = documentoRepositorio.save(documento);
+    cliente.getDocumentos().add(documento);
     clienteRepositorio.save(cliente);
+
+    return new ResponseEntity<>(HttpStatus.CREATED);
   }
+
   @PutMapping("/atualizar")
-  public void atualizarDocument(@RequestBody Documento documento){
-    var doc = documentoRepositorio.findById(documento.getId()).get();
-    documentoAtualizador.atualizar(doc, documento);
-     documentoRepositorio.save(doc);
+  public ResponseEntity<?> atualizarDocumento(@RequestBody Documento documento) {
+    Optional<Documento> docExistente = documentoRepositorio.findById(documento.getId());
+    if (docExistente.isPresent()) {
+      documentoAtualizador.atualizar(docExistente.get(), documento);
+      documentoRepositorio.save(docExistente.get());
+      return ResponseEntity.ok().build();
+    } else {
+      return ResponseEntity.badRequest().body("Documento não encontrado");
+    }
   }
+
   @DeleteMapping("/deletar")
-  public void deletarDocumento(@RequestBody Documento documento){
-    var doc = documentoRepositorio.findById(documento.getId()).get();
-    documentoRepositorio.delete(doc);
+  public ResponseEntity<?> deletarDocumento(@RequestBody Documento documento) {
+    Optional<Documento> doc = documentoRepositorio.findById(documento.getId());
+    if (doc.isPresent()) {
+      documentoRepositorio.delete(doc.get());
+      return ResponseEntity.ok().build();
+    } else {
+      return ResponseEntity.badRequest().body("Documento não encontrado");
+    }
   }
 }
